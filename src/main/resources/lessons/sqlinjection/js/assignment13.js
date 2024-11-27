@@ -1,61 +1,106 @@
 $(function () {
-    $('.col-check').hide();
+    // Збереження повторюваних селекторів у змінні
+    const $toolbarAdmin = $("#toolbar-admin");
+    const $colCheck = $(".col-check");
+    const $table = $("table");
+
+    $colCheck.hide();
+
     $('#btn-admin').on('click', function () {
-        if ($("#toolbar-admin").is(":visible")) {
-            $("#toolbar-admin").hide();
-            $(".col-check").hide();
-        }
-        else {
-            $("#toolbar-admin").show();
-            $(".col-check").show();
+        if ($toolbarAdmin.is(":visible")) {
+            $toolbarAdmin.hide();
+            $colCheck.hide();
+        } else {
+            $toolbarAdmin.show();
+            $colCheck.show();
         }
     });
 
     $('#btn-online').on('click', function () {
-        $('table tr').filter(':has(:checkbox:checked)').find('td').parent().removeClass().addClass('success');
-        $('table tr').filter(':has(:checkbox:checked)').find('td.status').text('online');
-    });
-    $('#btn-offline').on('click', function () {
-        $('table tr').filter(':has(:checkbox:checked)').find('td').parent().removeClass().addClass('warning');
-        $('table tr').filter(':has(:checkbox:checked)').find('td.status').text('offline');
-    });
-    $('#btn-out-of-order').on('click', function () {
-        $('table tr').filter(':has(:checkbox:checked)').find('td').parent().removeClass().addClass('danger');
-        $('table tr').filter(':has(:checkbox:checked)').find('td.status').text('out of order');
+        updateStatus('success', 'online');
     });
 
+    $('#btn-offline').on('click', function () {
+        updateStatus('warning', 'offline');
+    });
+
+    $('#btn-out-of-order').on('click', function () {
+        updateStatus('danger', 'out of order');
+    });
+
+    function updateStatus(className, statusText) {
+        $table.find('tr:has(:checkbox:checked)').each(function () {
+            const $row = $(this);
+            $row.removeClass().addClass(className);
+            $row.find('td.status').text(statusText);
+        });
+    }
 });
 
 $(document).ready(function () {
     getServers('id');
 });
 
-var html = '<tr class="STATUS">' +
-    '<td class="col-check"><input type="checkbox" class="form-check-input"/></td>' +
-    '<td>HOSTNAME</td>' +
-    '<td>IP</td>' +
-    '<td>MAC</td>' +
-    '<td class="status">ONLINE</td>' +
-    '<td>DESCRIPTION</td>' +
-    '</tr>';
-
 function getServers(column) {
-    $.get("SqlInjectionMitigations/servers?column=" + column, function (result, status) {
-        $("#servers").empty();
-        for (var i = 0; i < result.length; i++) {
-            var server = html.replace('ID', result[i].id);
-            var status = "success";
-            if (result[i].status === 'offline') {
-                status = "danger";
-            }
-            server = server.replace('ONLINE', status);
-            server = server.replace('STATUS', status);
-            server = server.replace('HOSTNAME', result[i].hostname);
-            server = server.replace('IP', result[i].ip);
-            server = server.replace('MAC', result[i].mac);
-            server = server.replace('DESCRIPTION', result[i].description);
-            $("#servers").append(server);
-        }
-
+    $.get("SqlInjectionMitigations/servers?column=" + encodeURIComponent(column), function (result) {
+        const $servers = $("#servers");
+        $servers.empty();
+        result.forEach(serverData => {
+            const serverRow = createServerRow(serverData);
+            $servers.append(serverRow);
+        });
     });
+}
+
+function createServerRow(serverData) {
+    const row = document.createElement('tr');
+    row.className = getStatusClass(serverData.status);
+
+    // Checkbox column
+    const checkBoxTd = document.createElement('td');
+    checkBoxTd.className = 'col-check';
+    const checkBox = document.createElement('input');
+    checkBox.type = 'checkbox';
+    checkBox.className = 'form-check-input';
+    checkBoxTd.appendChild(checkBox);
+    row.appendChild(checkBoxTd);
+
+    // Hostname column
+    const hostnameTd = document.createElement('td');
+    hostnameTd.textContent = serverData.hostname;
+    row.appendChild(hostnameTd);
+
+    // IP column
+    const ipTd = document.createElement('td');
+    ipTd.textContent = serverData.ip;
+    row.appendChild(ipTd);
+
+    // MAC column
+    const macTd = document.createElement('td');
+    macTd.textContent = serverData.mac;
+    row.appendChild(macTd);
+
+    // Status column
+    const statusTd = document.createElement('td');
+    statusTd.className = 'status';
+    statusTd.textContent = serverData.status;
+    row.appendChild(statusTd);
+
+    // Description column
+    const descriptionTd = document.createElement('td');
+    descriptionTd.textContent = serverData.description;
+    row.appendChild(descriptionTd);
+
+    return row;
+}
+
+function getStatusClass(status) {
+    switch (status) {
+        case 'offline':
+            return 'warning';
+        case 'out of order':
+            return 'danger';
+        default:
+            return 'success';
+    }
 }
